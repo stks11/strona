@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPX Viewer</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf/turf.min.js"></script>
+    <script src="script.js" defer></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@[VERSION]/dist/L.Control.Locate.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@[VERSION]/dist/L.Control.Locate.min.js" charset="utf-8"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+<body>
+    <input type="file" id="fileInput">
+    <div id="map">
+        <div class="choose">
+        <form>
+            <label>
+                <input type="radio" name="wybor" value="opcja1">
+                Podziel przez podaną liczbę częśći
+                <br>
+                <label for="ile">Podaj liczbę:</label>
+                <input type="number" id="ile">
+            </label><br>
+            <label>
+                <input type="radio" name="wybor" value="opcja2">
+                Podziel przez kilometraż
+                <br>
+                <label for="ile2">Podaj liczbę:</label>
+                <input type="number" id="ile2">
+            </label><br>
+            <button id="divide" type="button">Podziel</button>
+        </form>
+        </div>
+        <form id="sform">
+            <label for="stext">Podaj nazwę pliku: </label><br>
+            <input type="text" id="stext" name="stext"><br>
+            <label for="select">Zapisz zaznaczone:</label>
+            <input type="radio" id="select" name="select"><br>
+            <button id="save" type="button">Zapisz</button>
+        </form>
+    </div>
+</div>
+    <table id="statsTable">
+        <thead>
+            <tr>
+                <th>Liczba punktów</th>
+                <th>Suma długości (km)</th>
+                <th>Siła przewyższeń (m)</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+    <canvas id="elevationChart" width="400" height="50"></canvas>
+</body>
+</html>
