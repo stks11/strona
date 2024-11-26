@@ -65,7 +65,6 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
 
 
 function splitGPX(coordinates, parts) {
-    console.log("splitGPX called with:", coordinates, parts);
     const totalPoints = coordinates.length;
     const totalSegments = totalPoints - 1;
     const baseSegments = Math.floor(totalSegments/parts)
