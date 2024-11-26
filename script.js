@@ -65,12 +65,12 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
 
 
 function splitGPX(coordinates, parts) {
+    console.log("splitGPX called with:", coordinates, parts);
     const totalPoints = coordinates.length;
     const totalSegments = totalPoints - 1;
     const baseSegments = Math.floor(totalSegments/parts)
     const extraSegments = totalSegments % parts
 
-    let segments = [];
     let startIndex = 0;
 
     for(let i = 0; i < parts; i++){
@@ -82,6 +82,7 @@ function splitGPX(coordinates, parts) {
         startIndex = endIndex;
     }
     console.log(segments);
+
     return segments;
 
 }
@@ -106,6 +107,26 @@ function splitLineByKilometer(coordinates, segmentLengthKm) {
     return segments;
 }
 
+function mergeGPX(){
+    if (!segments || segments.length === 0) {
+        alert("Brak segmentów do połączenia.");
+        return;
+    }
+
+    const lineStrings = segments.map(segment => turf.lineString(segment));
+    const mergedFeatureCollection = turf.featureCollection(lineStrings);
+    const mergedLine = turf.combine(mergedFeatureCollection);
+    
+    drawnSegments.forEach(segment => map.removeLayer(segment));
+    drawnSegments = [];
+    
+    const trackSegmentLayer = L.geoJSON(mergedLine, {
+        style: { color: 'blue', weight: 4 }
+    }).addTo(map);
+    
+    drawnSegments.push(trackSegmentLayer);
+    map.fitBounds(trackSegmentLayer.getBounds());
+}
 
 document.getElementById('ile').style.display = 'none';
 document.getElementById('ile2').style.display = 'none';
@@ -141,29 +162,6 @@ function splitGPXHandler() {
 }
 
 document.querySelector('.choose').style.display = 'none';
-
-function mergeGPX(){
-    if (!segments || segments.length === 0) {
-        alert("Brak segmentów do połączenia.");
-        return;
-    }
-
-    const lineStrings = segments.map(segment => turf.lineString(segment));
-    
-    const mergedFeatureCollection = turf.featureCollection(lineStrings);
-    const mergedLine = turf.combine(mergedFeatureCollection);
-    
-    drawnSegments.forEach(segment => map.removeLayer(segment));
-    drawnSegments = [];
-    
-    const trackSegmentLayer = L.geoJSON(mergedLine, {
-        style: { color: 'blue', weight: 4 }
-    }).addTo(map);
-    
-    drawnSegments.push(trackSegmentLayer);
-
-    map.fitBounds(trackSegmentLayer.getBounds());
-}
 
 
 document.getElementById('divide').addEventListener('click', (e) => {
@@ -347,7 +345,7 @@ document.getElementById('save').addEventListener('click', (e) => {
         document.body.removeChild(link);
     }
     document.querySelector('#sform').style.display = 'none';
-    //selectedOption.checked = false;;
+    selectedOption.checked = false;;
 });
 
 function downloadGPXHandler() {
