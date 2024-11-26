@@ -65,18 +65,27 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
 
 
 function splitGPX(coordinates, parts) {
-    let totalPoints = coordinates.length;
-    let segmentSize = Math.floor(totalPoints / parts);
-    
-    for (let i = 0; i < parts; i++) {
-        if (i === parts - 1) {
-            segments.push(coordinates.slice(i * segmentSize));
-        } else {
-            segments.push(coordinates.slice(i * segmentSize, ((i + 1) * segmentSize + 1)));
-        }
+    const totalPoints = coordinates.length;
+    const totalSegments = totalPoints - 1;
+    const baseSegments = Math.floor(totalSegments/parts)
+    const extraSegments = totalSegments % parts
+
+    let segments = [];
+    let startIndex = 0;
+
+    for(let i = 0; i < parts; i++){
+        const segmentCount = baseSegments + (i < extraSegments ? 1 : 0);
+        const endIndex = startIndex + segmentCount;
+
+        segments.push(coordinates.slice(startIndex, endIndex + 1));
+        console.log(startIndex);
+        startIndex = endIndex;
     }
+    console.log(segments);
     return segments;
+
 }
+
 
 
 function splitLineByKilometer(coordinates, segmentLengthKm) {
@@ -91,10 +100,9 @@ function splitLineByKilometer(coordinates, segmentLengthKm) {
         let segment = turf.lineSliceAlong(line, start, end, { units: 'kilometers' });
         
         segments.push(segment.geometry.coordinates);
-
+        console.log(currentDistance);
         currentDistance = end;
     }
-
     return segments;
 }
 
@@ -339,7 +347,7 @@ document.getElementById('save').addEventListener('click', (e) => {
         document.body.removeChild(link);
     }
     document.querySelector('#sform').style.display = 'none';
-    selectedOption.checked = false;;
+    //selectedOption.checked = false;;
 });
 
 function downloadGPXHandler() {
