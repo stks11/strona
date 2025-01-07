@@ -818,10 +818,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
 }
 
 .leaflet-control-custom {
-    display: flex; /* Umożliwia układ flex */
-    flex-direction: column; /* Ustala układ w kolumnie */
-    gap: 10px; /* Odstęp między przyciskami */
-	border: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+	border: black;
+	border-width: 10px;
 }
 
 .leaflet-control-custom a {
@@ -835,6 +836,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	z-index: 1001;
     padding: 5px;
 	background-color: white;
+	border-style:inherit;
 }
 
 #sform{
@@ -846,3 +848,187 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	background-color: white;
 	display: none;
 }
+
+#divideForm{
+	border-style: inherit;
+}
+
+#fileInput{
+	cursor: pointer;
+	padding: 10px;
+	cursor: pointer;
+	background-color: #3498db;
+	color: #fff;
+	border-radius: 5px;
+	
+	
+}
+
+
+.container {
+	display: flex;
+	justify-content: center; 
+	align-items: center;
+
+  }
+
+  #fileButton {
+	border: none;
+	display: flex;
+	padding: 0.75rem 1.5rem;
+	background-color: #488aec;
+	color: #ffffff;
+	font-size: 0.75rem;
+	line-height: 1rem;
+	font-weight: 700;
+	text-align: center;
+	cursor: pointer;
+	text-transform: uppercase;
+	vertical-align: middle;
+	align-items: center;
+	border-radius: 0.5rem;
+	user-select: none;
+	gap: 0.75rem;
+	box-shadow:
+	  0 4px 6px -1px #488aec31,
+	  0 2px 4px -1px #488aec17;
+	transition: all 0.6s ease;
+  }
+  
+  #button:hover {
+	box-shadow:
+	  0 10px 15px -3px #488aec4f,
+	  0 4px 6px -2px #488aec17;
+  }
+  
+  #button:focus,
+  #button:active {
+	opacity: 0.85;
+	box-shadow: none;
+  }
+  
+  #button svg {
+	width: 1.25rem;
+	height: 1.25rem;
+  }
+  
+/* From Uiverse.io by cbolson */ 
+.choose {
+	--_clr-primary: #666;
+	--_clr-hover: #f33195;
+	--_clr-checked: #127acf;
+  }
+  .choose > div {
+	--_clr-current: var(--_clr-primary);
+  
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+  }
+  .choose > div + div {
+	margin-block-start: 0.5rem;
+  }
+  .choose label {
+	cursor: pointer;
+	color: var(--_clr-current);
+	transition: color 150ms ease-in-out;
+  }
+  
+  /* styled checkbox */
+  .choose input[type="checkbox"] {
+	appearance: none;
+	outline: none;
+	width: 1.5rem;
+	height: 1.5rem;
+	aspect-ratio: 1;
+	padding: 0.25rem;
+	background: transparent;
+	border: 1px solid var(--_clr-current);
+	border-radius: 2px;
+	display: grid;
+	place-content: center;
+	cursor: pointer;
+  }
+  .choose input[type="checkbox"]::after {
+	content: "\2714";
+	opacity: 0;
+	transition: opacity 150ms ease-in-out;
+	color: var(--_clr-checked);
+	font-size: inherit;
+	font-family: inherit;
+  }
+  
+  .choose label:hover,
+  .choose input[type="checkbox"]:focus-visible,
+  .choose input[type="checkbox"]:focus-visible + label,
+  .choose input[type="checkbox"]:hover,
+  .choose input[type="checkbox"]:hover + label {
+	--_clr-current: var(--_clr-hover);
+  }
+  .choose input[type="checkbox"]:focus-visible::after,
+  .choose input[type="checkbox"]:hover::after {
+	opacity: 0.5;
+	color: var(--_clr-hover);
+  }
+  
+  .choose input[type="checkbox"]:checked + label:not(:hover),
+  .choose input[type="checkbox"]:checked:not(:hover) {
+	--_clr-current: var(--_clr-checked);
+  }
+  .choose input[type="checkbox"]:checked::after {
+	opacity: 1;
+  }
+
+#save {
+position: relative;
+overflow: hidden;
+height: 2rem;
+padding: 0 2rem;
+border-radius: 1.5rem;
+background: #3d3a4e;
+background-size: 400%;
+color: #fff;
+border: none;
+cursor: pointer;
+}
+
+#save:hover::before {
+transform: scaleX(1);
+}
+
+#save-content {
+position: relative;
+z-index: 1;
+}
+
+#buttonDownload {
+    display: flex;
+    justify-content: center; 
+    align-items: center; 
+}
+
+#divide {
+	position: relative;
+	overflow: hidden;
+	height: 2rem;
+	padding: 0 2rem;
+	border-radius: 1.5rem;
+	background: #3d3a4e;
+	background-size: 400%;
+	color: #fff;
+	border: none;
+	cursor: pointer;
+	}
+	
+#divide:hover::before {
+	transform: scaleX(1);
+}
+
+#divide-content {
+	position: relative;
+	z-index: 1;
+}
+
+
+
+

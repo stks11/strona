@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPX Viewer</title>
+    <title>GPXplorer</title>
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf/turf.min.js"></script>
     <script src="script.js" defer></script>
@@ -19,33 +19,69 @@
 
 </head>
 <body>
-    <input type="file" id="fileInput">
+    <div class="container">
+        <button type="file" id="fileButton">
+            <svg
+            aria-hidden="true"
+            stroke="currentColor"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            >
+            <path
+                stroke-width="2"
+                stroke="#fffffff"
+                d="M13.5 3H12H8C6.34315 3 5 4.34315 5 6V18C5 19.6569 6.34315 21 8 21H11M13.5 3L19 8.625M13.5 3V7.625C13.5 8.17728 13.9477 8.625 14.5 8.625H19M19 8.625V11.8125"
+                stroke-linejoin="round"
+                stroke-linecap="round"
+            ></path>
+            <path
+                stroke-linejoin="round"
+                stroke-linecap="round"
+                stroke-width="2"
+                stroke="#fffffff"
+                d="M17 15V18M17 21V18M17 18H14M17 18H20"
+            ></path>
+            </svg>
+            Załącz plik
+        </button>
+    </div>
+      <input type="file" id="fileInput" style="display: none;" />
     <div id="map">
         <div class="choose">
-        <form>
+        <form >
             <label>
-                <input type="radio" name="wybor" value="opcja1">
-                Podziel przez podaną liczbę częśći
+                <input type="radio" name="wybor" value="opcja1" id="opcja1">
+                Podziel przez podaną liczbę części
                 <br>
                 <label for="ile">Podaj liczbę:</label>
                 <input type="number" id="ile">
             </label><br>
             <label>
-                <input type="radio" name="wybor" value="opcja2">
+                <input type="radio" name="wybor" value="opcja2" id="opcja2">
                 Podziel przez kilometraż
                 <br>
                 <label for="ile2">Podaj liczbę:</label>
                 <input type="number" id="ile2">
             </label><br>
-            <button id="divide" type="button">Podziel</button>
+            <div id="buttonDownload">
+                <button id="divide" type="button">Podziel</button>
+            </div>
         </form>
         </div>
+        
         <form id="sform">
             <label for="stext">Podaj nazwę pliku: </label><br>
             <input type="text" id="stext" name="stext"><br>
             <label for="select">Zapisz zaznaczone:</label>
             <input type="radio" id="select" name="select"><br>
-            <button id="save" type="button">Zapisz</button>
+            <div id="buttonDownload">
+            <button id="save">
+            <span>Pobierz </span>
+            </div>
+            </button>
+
         </form>
     </div>
 </div>

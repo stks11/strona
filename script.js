@@ -6,17 +6,13 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 map.locate({ setView: true, maxZoom: 16 });
 
-
-
 map.on('locationfound', function(e) {
     let radius = e.accuracy / 5;
     L.circle(e.latlng, radius).addTo(map);
 });
-
 map.on('locationerror', function () {
     map.setView([52.237049, 21.017532], 7);
 });
-
 L.Control.geocoder({
     drawMarker: true,
     icon: 'fa fa-map-marker', 
@@ -24,17 +20,34 @@ L.Control.geocoder({
     markerClass: L.circleMarker, 
 }).addTo(map);
 
-let drawnSegments = [];
 let selectedSegments = [];
 let trackLayer = null;
 let coordinates = [];
 let elevationChart = null;
 let segments = [];
+let refreshCoordinates = [];
+let fileName = '';
+let layers = [];
+let layersCoordinates = [];
+const fileButton = document.getElementById("fileButton");
+const fileInput = document.getElementById("fileInput");
 
+fileButton.addEventListener("click", () => {
+  fileInput.click(); 
+});
+fileInput.addEventListener("change", (event) => {
+  const files = event.target.files;
+  if (files.length > 0) {
+    console.log("Wybrano plik:", files[0].name);
+  } else {
+    console.log("Nie wybrano pliku");
+  }
+});
 
 document.getElementById('fileInput').addEventListener('change', function(event) {
     const file = event.target.files[0];
     if (file) {
+        fileName  = file.name;
         const reader = new FileReader();
         reader.onload = function(e) {
             const gpxText = e.target.result;
@@ -45,7 +58,8 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
             coordinates = trackPoints.map(point => {
                 return [parseFloat(point.getAttribute('lon')), parseFloat(point.getAttribute('lat')), parseFloat(point.getElementsByTagName('ele')[0].textContent)];
             });
-
+            refreshCoordinates = coordinates;
+            layersCoordinates.push(refreshCoordinates);
             let trackJSON = {
                 "type": "Feature",
                 "geometry": {
@@ -53,300 +67,405 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
                     "coordinates": coordinates
                 }
             };
-            if (trackLayer) {
-                map.removeLayer(trackLayer);
-            }
             trackLayer = L.geoJSON(trackJSON).addTo(map);
+            trackLayer.fileName = file.name;
+            layers.push(trackLayer);
+            layerSelection(trackLayer);
+            manageLayersControl();
             map.fitBounds(trackLayer.getBounds());
+            
         };
         reader.readAsText(file);
     }
+
 });
-
-
-function splitGPX(coordinates, parts) {
-    const totalPoints = coordinates.length;
-    const totalSegments = totalPoints - 1;
-    const baseSegments = Math.floor(totalSegments/parts)
-    const extraSegments = totalSegments % parts
-
+function splitGPXByParts(refreshCoordinates, parts) {
+    const totalPoints = refreshCoordinates.length;
+    const baseSegments = Math.floor(totalPoints / parts);
+    const extraSegments = totalPoints % parts;
     let startIndex = 0;
-
-    for(let i = 0; i < parts; i++){
+    const segments = [];
+    for (let i = 0; i < parts; i++) {
         const segmentCount = baseSegments + (i < extraSegments ? 1 : 0);
         const endIndex = startIndex + segmentCount;
-
-        segments.push(coordinates.slice(startIndex, endIndex + 1));
-        console.log(startIndex);
+        const segmentCoordinates = refreshCoordinates.slice(startIndex, endIndex + 1);
+        if (segmentCoordinates.length > 1) {
+            segments.push(segmentCoordinates);
+        } else {
+            console.warn(`Pominięto pusty lub zbyt krótki segment:`, segmentCoordinates);
+        }
         startIndex = endIndex;
     }
-    console.log(segments);
-
+    console.log("Segmenty po podziale na części:", segments);
     return segments;
-
 }
-
-
-
-function splitLineByKilometer(coordinates, segmentLengthKm) {
-    let line = turf.lineString(coordinates);
-    
+function splitLineByKilometer(refreshCoordinates, segmentLengthKm) {
+    let line = turf.lineString(refreshCoordinates);
     let totalLength = turf.length(line, { units: 'kilometers' });
     let currentDistance = 0;
-
     while (currentDistance < totalLength) {
         let start = currentDistance;
         let end = Math.min(currentDistance + segmentLengthKm, totalLength);
         let segment = turf.lineSliceAlong(line, start, end, { units: 'kilometers' });
-        
         segments.push(segment.geometry.coordinates);
         console.log(currentDistance);
         currentDistance = end;
     }
     return segments;
 }
-
-function mergeGPX(){
-    if (!segments || segments.length === 0) {
-        alert("Brak segmentów do połączenia.");
+function layerSelection(layer) {
+    if (layer.eachLayer) {
+        layer.eachLayer(function (segmentLayer) {
+            setupLayerClick(segmentLayer);
+        });
+    } else {
+        setupLayerClick(layer);
+    }
+}
+function setupLayerClick(layer) {
+    layer.on('click', function () {
+        const modifiedId = layer._leaflet_id + 1;
+        const existingSegment = selectedSegments.find(item => item.layer === layer);
+        if (existingSegment) {
+            selectedSegments = selectedSegments.filter(item => item.layer !== layer);
+            layer.setStyle({ weight: 3 });
+        } else {
+            selectedSegments.push({ layer: layer, modifiedId: modifiedId });
+            layer.setStyle({ weight: 5 });
+        }
+        console.log("Zaznaczone segmenty:", selectedSegments);
+    });
+}
+function mergeGPX() {
+    if (selectedSegments.length === 0) {
+        alert("Nie zaznaczono żadnych segmentów do scalenia.");
         return;
     }
-
-    const lineStrings = segments.map(segment => turf.lineString(segment));
-    const mergedFeatureCollection = turf.featureCollection(lineStrings);
-    const mergedLine = turf.combine(mergedFeatureCollection);
-    
-    drawnSegments.forEach(segment => map.removeLayer(segment));
-    drawnSegments = [];
-    
-    const trackSegmentLayer = L.geoJSON(mergedLine, {
-        style: { color: 'blue', weight: 4 }
+    let mergedCoordinates = [];
+    let isTooFar = false;
+    selectedSegments.forEach(({ layer }) => {
+        const geoJSON = layer.toGeoJSON();
+        if (geoJSON.geometry && geoJSON.geometry.coordinates) {
+            mergedCoordinates = mergedCoordinates.concat(geoJSON.geometry.coordinates);
+            console.log(mergedCoordinates);
+        }
+    });
+    if (mergedCoordinates.length === 0) {
+        alert("Nie udało się scalić współrzędnych. Sprawdź zaznaczone segmenty.");
+        return;
+    }
+    const mergedTrackJSON = {
+        "type": "Feature",
+        "geometry": {
+            "type": "LineString",
+            "coordinates": mergedCoordinates
+        }
+    };
+    const mergedTrackLayer = L.geoJSON(mergedTrackJSON, {
+        style: { weight: 3 }
     }).addTo(map);
-    
-    drawnSegments.push(trackSegmentLayer);
-    map.fitBounds(trackSegmentLayer.getBounds());
+    layerSelection(mergedTrackLayer);
+    mergedTrackLayer.fileName = `Połączone - ${mergedTrackLayer._leaflet_id}`;
+    layers.push(mergedTrackLayer);
+    layersCoordinates.push(mergedCoordinates);
+    selectedSegments.forEach(({ modifiedId }) => {
+        console.log("Sprawdzanie zaznaczonego modifiedId:", modifiedId);
+        const layerIndex = layers.findIndex(layer => layer._leaflet_id === modifiedId);
+        if (layerIndex !== -1) {
+            console.log(`Usuwanie warstwy z layers, indeks: ${layerIndex}, _leaflet_id: ${layers[layerIndex]._leaflet_id}`);
+            map.removeLayer(layers[layerIndex]);
+            layers.splice(layerIndex, 1);
+            layersCoordinates.splice(layerIndex, 1);
+        } else {
+            console.warn(`Nie znaleziono warstwy w 'layers' dla modifiedId: ${modifiedId}`);
+        }
+        const listItem = layersList.querySelector(`[data-layer-id="${modifiedId}"]`);
+        if (listItem) {
+            layersList.removeChild(listItem);
+    }
+    manageLayersControl();
+    });
+    selectedSegments = [];
+    map.fitBounds(mergedTrackLayer.getBounds());
+}
+
+async function fetchRouteFromOSRM(start, end) {
+    const url = `https://router.project-osrm.org/route/v1/driving/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson`;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Błąd podczas pobierania trasy: ${response.statusText}`);
+      }
+      const data = await response.json();
+      if (data.routes.length === 0) {
+        throw new Error("Brak dostępnej trasy między punktami.");
+      }
+      return data.routes[0].geometry; 
+    } catch (error) {
+      console.error("Błąd w fetchRouteFromOSRM:", error);
+      throw error;
+    }
+}
+function fillGap() {
+if (selectedSegments.length>1){
+    const firstPoint = selectedSegments[0].layer.feature.geometry.coordinates;
+    const lastPoint = selectedSegments[1].layer.feature.geometry.coordinates;
+    const latlngfirst = firstPoint.at(-1);
+    const start = [latlngfirst[0],latlngfirst[1]];
+    const latlnglast = lastPoint.at(-1);
+    const end = [latlnglast[0],latlnglast[1]]
+    fetchRouteFromOSRM(start, end)
+        .then((routeGeometry) => {
+        combinedPoints = routeGeometry;
+        console.log(combinedPoints)
+        console.log(combinedPoints);
+        const lineString = {
+            type: "Feature",
+            geometry: combinedPoints
+        };
+        const color = "black"
+        const lineLayer = L.geoJSON(lineString, { style: { color: color } }).addTo(map);
+        layers.push(lineLayer);
+        layerSelection(lineLayer);
+        lineLayer.fileName = `Fill - ${color}`
+        manageLayersControl();
+        })
+        .catch((error) => {
+        console.error("Błąd podczas wypełniania luki:", error);
+        });
+    }else if (selectedSegments.length>2){
+        alert("Zaznacz tylko dwie warstwy!")
+    }else{
+        alert("Zaznacz tylko dwie warstwy!")
+    }
 }
 
 document.getElementById('ile').style.display = 'none';
 document.getElementById('ile2').style.display = 'none';
 document.querySelector('label[for="ile"]').style.display = 'none';
 document.querySelector('label[for="ile2"]').style.display = 'none';
-
 function splitGPXHandler() {
     const wyborDiv = document.querySelector('.choose');
     const wyborForm = wyborDiv.querySelector('form');
-
-    if (wyborDiv.style.display === 'none' || wyborDiv.style.display === '') {
-        wyborDiv.style.display = 'block';
-
-        wyborForm.querySelectorAll('input[name="wybor"]').forEach(input => {
-            input.addEventListener('change', function() {
-                document.getElementById('ile').style.display = 'none';
-                document.querySelector('label[for="ile"]').style.display = 'none';
-                document.getElementById('ile2').style.display = 'none';
-                document.querySelector('label[for="ile2"]').style.display = 'none';
-
-                if (this.value === 'opcja1') {
-                    document.getElementById('ile').style.display = 'inline';
-                    document.querySelector('label[for="ile"]').style.display = 'inline';
-                } else if (this.value === 'opcja2') {
-                    document.getElementById('ile2').style.display = 'inline';
-                    document.querySelector('label[for="ile2"]').style.display = 'inline';
-                }
+        if (wyborDiv.style.display === 'none' || wyborDiv.style.display === '') {
+            wyborDiv.style.display = 'block';
+            wyborForm.querySelectorAll('input[name="wybor"]').forEach(input => {
+                input.addEventListener('change', function() {
+                    document.getElementById('ile').style.display = 'none';
+                    document.querySelector('label[for="ile"]').style.display = 'none';
+                    document.getElementById('ile2').style.display = 'none';
+                    document.querySelector('label[for="ile2"]').style.display = 'none';
+                    if (this.value === 'opcja1') {
+                        document.getElementById('ile').style.display = 'inline';
+                        document.querySelector('label[for="ile"]').style.display = 'inline';
+                    } else if (this.value === 'opcja2') {
+                        document.getElementById('ile2').style.display = 'inline';
+                        document.querySelector('label[for="ile2"]').style.display = 'inline';
+                    }
+                });
             });
-        });
-    } else {
-        wyborDiv.style.display = 'none';
-    }
+        } else {
+            wyborDiv.style.display = 'none';
+        }
 }
-
 document.querySelector('.choose').style.display = 'none';
-
-
-document.getElementById('divide').addEventListener('click', (e) => {
-    const wyborDiv = document.querySelector('.choose');
-    const wyborForm = wyborDiv.querySelector('form');
-    const selectedOption = wyborForm.querySelector('input[name="wybor"]:checked');
-
+function splitGPX() {
+    const layersList = document.getElementById('layersList');
+    if (selectedSegments.length === 0) {
+        alert("Brak zaznaczonych segmentów do podziału!");
+        return;
+    }
+    if (selectedSegments.length > 1) {
+        alert("Zaznacz tylko jedną warstwę do podziału!");
+        return;
+    }
+    const { layer: layerToSplit, modifiedId } = selectedSegments[0];
+    const index = layers.findIndex(layer =>
+        layer._leaflet_id === layerToSplit._leaflet_id || layer._leaflet_id === modifiedId
+    );
+    if (index === -1) {
+        alert("Nie można znaleźć zaznaczonej warstwy w `layers`.");
+        return;
+    }
+    const coordinatesToSplit = layersCoordinates[index];
+    if (!coordinatesToSplit || coordinatesToSplit.length === 0) {
+        alert("Wybrana warstwa nie zawiera danych do podziału.");
+        return;
+    }
+    map.removeLayer(layerToSplit);
+    layers.splice(index, 1);
+    layersCoordinates.splice(index, 1);
+    const selectedOption = document.querySelector('input[name="wybor"]:checked')?.value;
     if (!selectedOption) {
         alert("Proszę wybrać jedną z opcji podziału.");
         return;
     }
-
-    if (coordinates.length > 0) {
-        let segments;
-
-        if (selectedOption.value === 'opcja1') {
-            let parts = parseInt(document.getElementById('ile').value);
-            if (isNaN(parts) || parts <= 0) {
-                alert("Proszę podać poprawną liczbę części.");
-                return;
-            }
-            
-            segments = splitGPX(coordinates, parts);
-           
-        } else if (selectedOption.value === 'opcja2') {
-            let segmentLengthKm = parseFloat(document.getElementById('ile2').value);
-            if (isNaN(segmentLengthKm) || segmentLengthKm <= 0) {
-                alert("Proszę podać poprawną długość odcinka.");
-                return;
-            }
-            segments = splitLineByKilometer(coordinates, segmentLengthKm);
+    let segmentsToAdd;
+    if (selectedOption === 'opcja1') {
+        const parts = parseInt(document.getElementById('ile').value);
+        if (isNaN(parts) || parts <= 0) {
+            alert("Proszę podać poprawną liczbę części.");
+            return;
         }
-
-        drawnSegments.forEach(segment => map.removeLayer(segment));
-        drawnSegments = [];
-
-        segments.forEach((segment, index) => {
-            let trackJSON = {
-                "type": "Feature",
-                "geometry": {
-                    "type": "LineString",
-                    "coordinates": segment
-                }
-            };
-            let colors = ['red', 'green', 'orange', 'purple', 'yellow'];
-            let color = colors[index % colors.length];
-
-            let trackSegmentLayer = L.geoJSON(trackJSON, {
-                style: { color: color, weight: 3 },
-                onEachFeature: function (feature, layer) {
-                    layer.on('click', function () {
-                        if (selectedSegments.includes(layer)) {
-                            layer.setStyle({ color: color });
-                            selectedSegments = selectedSegments.filter(l => l !== layer);
-                        } else {
-                            layer.setStyle({ color: 'blue', weight: 5 });
-                            selectedSegments.push(layer);
-                        }
-                    });
-                }
-            }).addTo(map);
-
-            drawnSegments.push(trackSegmentLayer);
-        });
-
-        wyborDiv.style.display = 'none';
-        wyborForm.reset();
-        document.getElementById('ile').style.display = 'none';
-        document.getElementById('ile2').style.display = 'none';
-        document.querySelector('label[for="ile"]').style.display = 'none';
-        document.querySelector('label[for="ile2"]').style.display = 'none';
-
-        map.fitBounds(trackLayer.getBounds());
-    } else {
-        alert("Nie załadowano pliku GPX");
+        segmentsToAdd = splitGPXByParts(coordinatesToSplit, parts);
+    } else if (selectedOption === 'opcja2') {
+        const segmentLengthKm = parseFloat(document.getElementById('ile2').value);
+        if (isNaN(segmentLengthKm) || segmentLengthKm <= 0) {
+            alert("Proszę podać poprawną długość odcinka.");
+            return;
+        }
+        segmentsToAdd = splitLineByKilometer(coordinatesToSplit, segmentLengthKm); 
     }
+    if (!segmentsToAdd || segmentsToAdd.length === 0) {
+        alert("Nie udało się podzielić warstwy na segmenty.");
+        return;
+    }
+    const listItem = layersList.querySelector(`[data-layer-id="${modifiedId}"]`);
+        if (listItem) {
+            layersList.removeChild(listItem);
+    }
+    segmentsToAdd.forEach((coordinates, index) => {
+        const trackJSON = {
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": coordinates
+            }
+        };
+        const colors = ['red', 'green', 'orange', 'purple', 'yellow'];
+        const color = colors[index % colors.length];
+        const trackSegmentLayer = L.geoJSON(trackJSON, {
+            style: { color: color, weight: 3 }
+        }).addTo(map);
+        trackSegmentLayer.fileName = `Segment ${index + 1} - ${color}`;
+        segments.push(trackSegmentLayer);
+        layers.push(trackSegmentLayer);
+        layersCoordinates.push(coordinates);
+        layerSelection(trackSegmentLayer);
+    });
+    manageLayersControl();
+    selectedSegments = [];
+}
+document.getElementById('divide').addEventListener('click', (e) => {
+    splitGPX();
 });
-
-
 function clearMap() {
+    const layersList = document.getElementById('layersList');
+    if (selectedSegments.length > 0) {
+        selectedSegments.forEach(({ modifiedId }) => {
+            console.log("Sprawdzanie zaznaczonego modifiedId:", modifiedId);
+            const layerIndex = layers.findIndex(layer => layer._leaflet_id === modifiedId);
+            if (layerIndex !== -1) {
+                console.log(`Usuwanie warstwy z layers, indeks: ${layerIndex}, _leaflet_id: ${layers[layerIndex]._leaflet_id}`);
+                map.removeLayer(layers[layerIndex]);
+                layers.splice(layerIndex, 1);
+                layersCoordinates.splice(layerIndex, 1);
+            }
+            const listItem = layersList.querySelector(`[data-layer-id="${modifiedId}"]`);
+            if (listItem) {
+                layersList.removeChild(listItem);
+            }
+        });
+        selectedSegments = [];
+        return;
+    }
     if (trackLayer) {
         map.removeLayer(trackLayer);
         trackLayer = null;
     }
-
-    if (drawnSegments.length > 0) {
-        drawnSegments.forEach(segment => map.removeLayer(segment));
-        drawnSegments = [];
+    if (layers.length > 0) {
+        layers.forEach(layer => {
+            if (layer) {
+                map.removeLayer(layer);
+            }
+        });
+        layers = [];
     }
-
+    layersCoordinates = [];
+    coordinates = [];
     selectedSegments = [];
-
-    const tableBody = document.getElementById('statsTable').querySelector('tbody');
-    tableBody.innerHTML = '';
-    document.getElementById('statsTable').style.display = 'none';
-
+    segments = [];
+    if (layersList) {
+        layersList.innerHTML = '';
+    }
+    const tableBody = document.getElementById('statsTable')?.querySelector('tbody');
+    if (tableBody) {
+        tableBody.innerHTML = '';
+    }
+    const statsTable = document.getElementById('statsTable');
+    if (statsTable) {
+        statsTable.style.display = 'none';
+    }
     const fileInputElement = document.getElementById('fileInput');
     if (fileInputElement) {
         fileInputElement.value = '';
     }
 }
-
-
-
-function updateStats() {
+function updateStatsForLayer(coordinates) {
     let pointCount = coordinates.length;
     let totalLength = 0;
     let elevationGain = 0;
-
     for (let i = 0; i < coordinates.length - 1; i++) {
         let start = L.latLng(coordinates[i][1], coordinates[i][0]);
         let end = L.latLng(coordinates[i + 1][1], coordinates[i + 1][0]);
-        totalLength += start.distanceTo(end) / 1000; 
-
+        totalLength += start.distanceTo(end) / 1000;
         let elevationDiff = coordinates[i + 1][2] - coordinates[i][2];
         if (elevationDiff > 0) {
-            elevationGain += elevationDiff; 
+            elevationGain += elevationDiff;
         }
     }
-
     return {
         pointCount: pointCount,
-        totalLength: totalLength.toFixed(2), 
+        totalLength: totalLength,
         elevationGain: elevationGain
     };
 }
-
 document.getElementById('save').addEventListener('click', (e) => {
-    let gpxData = `<?xml version="1.0" encoding="UTF-8"?>
-        <gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpsies="https://www.gpsies.com/GPX/1/0" version="1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-        xsi:schemaLocation="http://www.topografix.com/GPX/1/1">
-        <metadata>
-        <name>${new Date().toDateString()}</name>
-        </metadata>
-        <trk>
-        <trkseg>
-        `;    
-
-    const selectedOption = document.querySelector('input[name="select"]:checked');
-    let dataToSave;
-    
-    let convertedSegments = [];
-
-    selectedSegments.forEach(segment => {
-        const coordinates = segment.getLatLngs();
-        coordinates.forEach(coord => {
-            convertedSegments.push([coord.lng, coord.lat, coord.alt]);
-        });
-    });
-
-    if(selectedOption){
-            dataToSave = convertedSegments;
-        }else{
-            dataToSave = coordinates;
-        }
-    
-    dataToSave.forEach(cords => {
-        let [lon, lat, ele] = cords;
-        gpxData += `<trkpt lon="${lon}" lat="${lat}">\n<ele>${ele}</ele>\n</trkpt>\n`;
-    });
-    gpxData += `</trkseg>
-        </trk>
-        </gpx>`
-
-    if ((!segments || segments.length === 0) || !trackLayer) {
-        alert("Brak danych do pobrania");
-    } else {
-        const blob = new Blob([gpxData], { type: 'application/gpx+xml' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-
-        let nazwaPliku = document.getElementById('stext').value
-        if(nazwaPliku){
-            link.download = `${nazwaPliku}`+ '.gpx';
-        }else{
-            link.download = 'Trasa.gpx'
-        }
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    e.preventDefault();
+    if ((!segments || segments.length === 0) && !trackLayer) {
+        alert("Brak danych do zapisania.");
+        return;
     }
-    document.querySelector('#sform').style.display = 'none';
-    selectedOption.checked = false;;
-});
+    let gpxData = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">
+  <metadata>
+    <name>Trasa GPX - ${new Date().toISOString()}</name>
+  </metadata>
+  <trk>
+    <trkseg>
+`;
+    let dataToSave = [];
+    if (selectedSegments.length > 0) {
+        selectedSegments.forEach(segment => {
+            const coordinates = segment.layer.feature.geometry.coordinates;
+            dataToSave = dataToSave.concat(coordinates);
+        });
+    } else if (coordinates.length > 0) {
+        dataToSave = coordinates;
+    } else {
+        alert("Brak wybranych segmentów do zapisania.");
+        return;
+    }
+    dataToSave.forEach(([lon, lat, ele = 0]) => {
+        gpxData += `<trkpt lon="${lon}" lat="${lat}">
+      <ele>${ele}</ele>
+    </trkpt>\n`;
+    });
 
+    gpxData += `    </trkseg>
+  </trk>
+</gpx>`;
+    const blob = new Blob([gpxData], { type: 'application/gpx+xml' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    const fileNameInput = document.getElementById('stext');
+    const fileName = fileNameInput && fileNameInput.value.trim() ? fileNameInput.value.trim() : 'Trasa';
+    link.download = `${fileName}.gpx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    document.querySelector('#sform').style.display = 'none';
+});
 function downloadGPXHandler() {
     const saveForm = document.querySelector('#sform');
 
@@ -356,17 +475,11 @@ function downloadGPXHandler() {
         saveForm.style.display = 'none';
     }
 }
-
-
-
-
 function createElevationChart(distances, elevations) {
     const ctx = document.getElementById('elevationChart').getContext('2d');
-
     if (elevationChart !== null) {
         elevationChart.destroy();
     }
-
     elevationChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -401,14 +514,11 @@ function createElevationChart(distances, elevations) {
         }
     });
 }
-
 let CustomControl = L.Control.extend({
     options: {
         position: 'topright' 
     },
-
     onAdd: function(map) {
-        
         let container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
 
         let splitButton = L.DomUtil.create('a', '', container);
@@ -436,9 +546,11 @@ let CustomControl = L.Control.extend({
         downloadButton.text = '↓'
         downloadButton.style.background = 'white';
 
-        
+        let fillButton = L.DomUtil.create('a', '', container);
+        fillButton.href = '#';
+        fillButton.text = 'F';
+        fillButton.style.background = 'white';
 
-        
         L.DomEvent.on(splitButton, 'click', function(e) {
             L.DomEvent.stopPropagation(e);
             L.DomEvent.preventDefault(e);
@@ -467,62 +579,119 @@ let CustomControl = L.Control.extend({
             L.DomEvent.preventDefault(e);
             downloadGPXHandler();
         });
-
+        L.DomEvent.on(fillButton, 'click', function(e) {
+            L.DomEvent.stopPropagation(e);
+            L.DomEvent.preventDefault(e);
+            fillGap();
+        });
         return container;
-
     }
 });
 
 map.addControl(new CustomControl());
 
+const LayersControl = L.Control.extend({
+    options: {
+        position: 'topleft'
+    },
+    onAdd: function (map) {
+        const container = L.DomUtil.create('div', 'leaflet-control-layers');
+        container.style.backgroundColor = 'white';
+        container.style.padding = '10px';
+        container.style.maxHeight = '200px';
+        container.style.overflowY = 'auto';
+        container.style.fontSize = '14px';
+
+        const header = L.DomUtil.create('strong', '', container);
+        header.textContent = 'Warstwy:';
+
+        const layersList = L.DomUtil.create('ul', '', container);
+        layersList.id = 'layersList';
+        layersList.style.listStyle = 'none';
+        layersList.style.padding = '0';
+
+        L.DomEvent.disableClickPropagation(container);
+
+        return container;
+    }
+});
+map.addControl(new LayersControl());
+
+function manageLayersControl() {
+    const layersList = document.getElementById('layersList');
+    if (!layersList) {
+        console.error("Nie znaleziono elementu layersList.");
+        return;
+    }
+    layersList.innerHTML = '';
+    layers.forEach((layer, index) => {
+        const listItem = document.createElement('li');
+        listItem.textContent = layer.fileName || `Warstwa ${index + 1}`;
+        listItem.dataset.layerId = layer._leaflet_id;
+        listItem.style.cursor = 'pointer';
+        listItem.addEventListener('click', () => {
+            if (map.hasLayer(layer)) {
+                map.removeLayer(layer);
+                listItem.style.textDecoration = 'line-through';
+            } else {
+                map.addLayer(layer);
+                listItem.style.textDecoration = 'none';
+            }
+        });
+        layersList.appendChild(listItem);
+    });
+}
 function statsHandler() {
     const statsTable = document.getElementById('statsTable');
     const tableBody = statsTable.querySelector('tbody');
-
     if (statsTable.style.display === 'table') {
         statsTable.style.display = 'none';
         document.getElementById('elevationChart').style.display = 'none';
+        return;
     } else {
-        if (coordinates.length > 0) {
-            let stats = updateStats();
-
+        if (selectedSegments.length > 0) {
+            let stats = { pointCount: 0, totalLength: 0, elevationGain: 0 };
+            let distances = [];
+            let elevations = [];
+            selectedSegments.forEach(({ modifiedId }) => {
+                const layerIndex = layers.findIndex(layer => layer._leaflet_id === modifiedId);
+                if (layerIndex !== -1) {
+                    const coordinates = layersCoordinates[layerIndex];
+                    const layerStats = updateStatsForLayer(coordinates);
+                    stats.pointCount += layerStats.pointCount;
+                    stats.totalLength += parseFloat(layerStats.totalLength);
+                    stats.elevationGain += layerStats.elevationGain;
+                    let totalDistance = distances.length > 0 ? distances[distances.length - 1] : 0;
+                    for (let i = 1; i < coordinates.length; i++) {
+                        let start = L.latLng(coordinates[i - 1][1], coordinates[i - 1][0]);
+                        let end = L.latLng(coordinates[i][1], coordinates[i][0]);
+                        let distance = start.distanceTo(end) / 1000;
+                        totalDistance += distance;
+                        distances.push(totalDistance);
+                        elevations.push(coordinates[i][2]);
+                    }
+                }
+            });
             tableBody.innerHTML = '';
-
             const row = document.createElement('tr');
             const cellCount = document.createElement('td');
             const cellLength = document.createElement('td');
             const cellElevation = document.createElement('td');
-
             cellCount.textContent = stats.pointCount;
-            cellLength.textContent = stats.totalLength;
+            cellLength.textContent = stats.totalLength.toFixed(2);
             cellElevation.textContent = stats.elevationGain;
-
             row.appendChild(cellCount);
             row.appendChild(cellLength);
             row.appendChild(cellElevation);
             tableBody.appendChild(row);
-
             statsTable.style.display = 'table';
-
-            let distances = [0];
-            let elevations = [coordinates[0][2]];
-
-            let totalDistance = 0;
-
-            for (let i = 1; i < coordinates.length; i++) {
-                let start = L.latLng(coordinates[i-1][1], coordinates[i-1][0]);
-                let end = L.latLng(coordinates[i][1], coordinates[i][0]);
-                let distance = start.distanceTo(end) / 1000;
-                totalDistance += distance;
-                distances.push(totalDistance);
-                elevations.push(coordinates[i][2]);
+            if (distances.length > 0 && elevations.length > 0) {
+                createElevationChart(distances, elevations);
+                document.getElementById('elevationChart').style.display = 'block';
             }
-           
-            createElevationChart(distances, elevations);
-
-            document.getElementById('elevationChart').style.display = 'block';
         } else {
-            alert("Nie załadowano pliku GPX lub brak punktów.");
+            alert("Nie zaznaczono warstwy lub brak punktów.");
         }
     }
-};
+}
+
