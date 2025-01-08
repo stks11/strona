@@ -35,14 +35,9 @@ const fileInput = document.getElementById("fileInput");
 fileButton.addEventListener("click", () => {
   fileInput.click(); 
 });
-fileInput.addEventListener("change", (event) => {
-  const files = event.target.files;
-  if (files.length > 0) {
-    console.log("Wybrano plik:", files[0].name);
-  } else {
-    console.log("Nie wybrano pliku");
-  }
-});
+// fileInput.addEventListener("change", (event) => {
+//   const files = event.target.files;
+// });
 
 document.getElementById('fileInput').addEventListener('change', function(event) {
     const file = event.target.files[0];
