@@ -35,10 +35,6 @@ const fileInput = document.getElementById("fileInput");
 fileButton.addEventListener("click", () => {
   fileInput.click(); 
 });
-// fileInput.addEventListener("change", (event) => {
-//   const files = event.target.files;
-// });
-
 document.getElementById('fileInput').addEventListener('change', function(event) {
     const file = event.target.files[0];
     if (file) {
@@ -86,12 +82,10 @@ function splitGPXByParts(refreshCoordinates, parts) {
         const segmentCoordinates = refreshCoordinates.slice(startIndex, endIndex + 1);
         if (segmentCoordinates.length > 1) {
             segments.push(segmentCoordinates);
-        } else {
-            console.warn(`Pominięto pusty lub zbyt krótki segment:`, segmentCoordinates);
-        }
+        }; 
         startIndex = endIndex;
     }
-    console.log("Segmenty po podziale na części:", segments);
+    console.log("Segmenty:", segments);
     return segments;
 }
 function splitLineByKilometer(refreshCoordinates, segmentLengthKm) {
@@ -115,6 +109,7 @@ function layerSelection(layer) {
         });
     } else {
         setupLayerClick(layer);
+        
     }
 }
 function setupLayerClick(layer) {
@@ -128,12 +123,12 @@ function setupLayerClick(layer) {
             selectedSegments.push({ layer: layer, modifiedId: modifiedId });
             layer.setStyle({ weight: 5 });
         }
-        console.log("Zaznaczone segmenty:", selectedSegments);
+        console.log("Zaznaczone:", selectedSegments);
     });
 }
 function mergeGPX() {
     if (selectedSegments.length === 0) {
-        alert("Nie zaznaczono żadnych segmentów do scalenia.");
+        alert("Zaznacz segmenty do scalenia");
         return;
     }
     let mergedCoordinates = [];
@@ -146,7 +141,6 @@ function mergeGPX() {
         }
     });
     if (mergedCoordinates.length === 0) {
-        alert("Nie udało się scalić współrzędnych. Sprawdź zaznaczone segmenty.");
         return;
     }
     const mergedTrackJSON = {
@@ -164,15 +158,14 @@ function mergeGPX() {
     layers.push(mergedTrackLayer);
     layersCoordinates.push(mergedCoordinates);
     selectedSegments.forEach(({ modifiedId }) => {
-        console.log("Sprawdzanie zaznaczonego modifiedId:", modifiedId);
+        console.log("modifiedId:", modifiedId);
         const layerIndex = layers.findIndex(layer => layer._leaflet_id === modifiedId);
         if (layerIndex !== -1) {
-            console.log(`Usuwanie warstwy z layers, indeks: ${layerIndex}, _leaflet_id: ${layers[layerIndex]._leaflet_id}`);
             map.removeLayer(layers[layerIndex]);
             layers.splice(layerIndex, 1);
             layersCoordinates.splice(layerIndex, 1);
         } else {
-            console.warn(`Nie znaleziono warstwy w 'layers' dla modifiedId: ${modifiedId}`);
+            alert(`Nie znaleziono warstwy o ID: ${modifiedId}`);
         }
         const listItem = layersList.querySelector(`[data-layer-id="${modifiedId}"]`);
         if (listItem) {
@@ -212,8 +205,6 @@ if (selectedSegments.length>1){
     fetchRouteFromOSRM(start, end)
         .then((routeGeometry) => {
         combinedPoints = routeGeometry;
-        console.log(combinedPoints)
-        console.log(combinedPoints);
         const lineString = {
             type: "Feature",
             geometry: combinedPoints
@@ -226,12 +217,11 @@ if (selectedSegments.length>1){
         manageLayersControl();
         })
         .catch((error) => {
-        console.error("Błąd podczas wypełniania luki:", error);
         });
-    }else if (selectedSegments.length>2){
-        alert("Zaznacz tylko dwie warstwy!")
+    }else if (selectedSegments.length===0){
+        alert("Zaznacz dwie widoczne warstwy")
     }else{
-        alert("Zaznacz tylko dwie warstwy!")
+        alert("Zaznacz tylko dwie widoczne warstwy")
     }
 }
 
@@ -267,11 +257,11 @@ document.querySelector('.choose').style.display = 'none';
 function splitGPX() {
     const layersList = document.getElementById('layersList');
     if (selectedSegments.length === 0) {
-        alert("Brak zaznaczonych segmentów do podziału!");
+        alert("Zaznacz warstwę do podziału");
         return;
     }
     if (selectedSegments.length > 1) {
-        alert("Zaznacz tylko jedną warstwę do podziału!");
+        alert("Zaznacz jedną warstwę do podziału");
         return;
     }
     const { layer: layerToSplit, modifiedId } = selectedSegments[0];
@@ -279,12 +269,11 @@ function splitGPX() {
         layer._leaflet_id === layerToSplit._leaflet_id || layer._leaflet_id === modifiedId
     );
     if (index === -1) {
-        alert("Nie można znaleźć zaznaczonej warstwy w `layers`.");
+        alert("Nie można znaleźć warstwy");
         return;
     }
     const coordinatesToSplit = layersCoordinates[index];
     if (!coordinatesToSplit || coordinatesToSplit.length === 0) {
-        alert("Wybrana warstwa nie zawiera danych do podziału.");
         return;
     }
     map.removeLayer(layerToSplit);
@@ -292,27 +281,27 @@ function splitGPX() {
     layersCoordinates.splice(index, 1);
     const selectedOption = document.querySelector('input[name="wybor"]:checked')?.value;
     if (!selectedOption) {
-        alert("Proszę wybrać jedną z opcji podziału.");
+        alert("Wybierz opcję podziału");
         return;
     }
     let segmentsToAdd;
     if (selectedOption === 'opcja1') {
         const parts = parseInt(document.getElementById('ile').value);
         if (isNaN(parts) || parts <= 0) {
-            alert("Proszę podać poprawną liczbę części.");
+            alert("Podaj poprawną liczbę części");
             return;
         }
         segmentsToAdd = splitGPXByParts(coordinatesToSplit, parts);
     } else if (selectedOption === 'opcja2') {
         const segmentLengthKm = parseFloat(document.getElementById('ile2').value);
         if (isNaN(segmentLengthKm) || segmentLengthKm <= 0) {
-            alert("Proszę podać poprawną długość odcinka.");
+            alert("Podaj poprawną długość");
             return;
         }
         segmentsToAdd = splitLineByKilometer(coordinatesToSplit, segmentLengthKm); 
     }
     if (!segmentsToAdd || segmentsToAdd.length === 0) {
-        alert("Nie udało się podzielić warstwy na segmenty.");
+        alert("Warstwa nie została podzielona");
         return;
     }
     const listItem = layersList.querySelector(`[data-layer-id="${modifiedId}"]`);
@@ -348,10 +337,8 @@ function clearMap() {
     const layersList = document.getElementById('layersList');
     if (selectedSegments.length > 0) {
         selectedSegments.forEach(({ modifiedId }) => {
-            console.log("Sprawdzanie zaznaczonego modifiedId:", modifiedId);
             const layerIndex = layers.findIndex(layer => layer._leaflet_id === modifiedId);
             if (layerIndex !== -1) {
-                console.log(`Usuwanie warstwy z layers, indeks: ${layerIndex}, _leaflet_id: ${layers[layerIndex]._leaflet_id}`);
                 map.removeLayer(layers[layerIndex]);
                 layers.splice(layerIndex, 1);
                 layersCoordinates.splice(layerIndex, 1);
