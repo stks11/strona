@@ -16,9 +16,70 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div class="nav">
+    <div class="nav-container">
+        <div class="site-logo">GPXplorer</div>
+        <div class="btn"><a href="#map">Mapa</a></div>
+        <div class="btn"><a href="#intro">Wprowadzenie</a></div>
+        <div class="btn"><a href="#about">O stronie</a></div>
+        <svg
+        class="outline"
+        overflow="visible"
+        width="400"
+        height="60"
+        viewBox="0 0 400 60"
+        xmlns="http://www.w3.org/2000/svg"
+        >
+        </svg>
+    </div>
+    </div>
+<div class="button"> 
+<div class="Instrukcje" id="intro">
+    Instrukcje dotyczące przycisków
+</div>
+<div class="button-container">
+    <div class="button-item-divide">
+        <div class="divide-logo">
+            D
+        </div>
+        <span>Przycisk "Divide" służy do podzielenia dodanej warstwy na równe części lub na kilometrowe odstępy podane przez użytkownika.</span>
+    </div>
+    <div class="button-item-merge">
+        <div class="merge-logo">
+            M
+        </div>
+        <span>Przycisk "Merge" służy do połączenia poprzednio podzielonej warstwy. W przypadku występującej widocznej przerwy, pojawi się prosta linia pomiędzy warstwami.</span>
+    </div>
+    <div class="button-item-stat">
+        <div class="stat-logo">
+            S
+        </div>
+        <span>Przycisk "Statistics" służy do wyświetlania statystyk zaznaczonej warstwy. Zostaną wyświetlone statystyki dotyczące: liczby punktów w pliku, suma długości w kilometrach i siła przewyższeń</span>
+    </div>
+    <div class="button-item-clear">
+        <div class="clear-logo">
+            C
+        </div>
+        <span>Przycisk "Clear" służy do całkowitego wyczyszenia mapy lub usunięcia zaznaczonej warstwy na mapie</span>
+    </div>
+    <div class="button-item-down">
+        <div class="down-logo">
+            ↓
+        </div>
+        <span>Przycisk "Download" służy do pobrania zaznaczonej warstwy. Po klinięciu warstwa zostanie zapisana do pliku .GPX</span>
+    </div>
+    <div class="button-item-fill">
+        <div class="fill-logo">
+            F
+        </div>
+        <span>Przycisk "Fill" służy do "wypełnienia" przerwy pomiędzy dwoma zaznaczonymi warstwami. Informacja o punktach dostarcza OSRM API i jest wyświetlana w formie warstwy liniowej na mapie.</span>
+    </div>
+</div>
     <div class="container">
         <button type="file" id="fileButton">
             <svg
@@ -48,7 +109,7 @@
         </button>
     </div>
       <input type="file" id="fileInput" style="display: none;" />
-    <div id="map">
+    <div id="map" id="Mapa">
         <div class="choose">
         <form >
             <label>
@@ -85,6 +146,16 @@
         </form>
     </div>
 </div>
+    <div class="about" id="about">
+            <h3>O stronie</h3>
+        <div class="about-text">
+            <p>GPXplorer to wszechstronna aplikacja internetowa zaprojektowana do zarządzania plikami GPX,
+            umożliwiająca użytkownikom pracę z trasami przedstawionymi jako warstwy liniowe na interaktywnej mapie. 
+            Umożliwia wczytywanie plików, edycję tras poprzez dzielenie i scalanie, a także analizę danych przestrzennych i wizualizację przewyższeń. 
+            Aplikacja wspiera eksport zmodyfikowanych tras oraz oferuje intuicyjne zarządzanie warstwami, co pozwala użytkownikom na pełną kontrolę nad prezentowanymi danymi. 
+            GPXplorer łączy funkcjonalność z prostotą obsługi, dostarczając narzędzie zarówno dla profesjonalistów, jak i pasjonatów aktywności outdoorowych.</p>
+        </div>
+    </div>
     <table id="statsTable">
         <thead>
             <tr>
