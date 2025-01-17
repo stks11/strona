@@ -10,8 +10,9 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@[VERSION]/dist/L.Control.Locate.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@[VERSION]/dist/L.Control.Locate.min.js" charset="utf-8"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
@@ -110,8 +111,8 @@
     </div>
       <input type="file" id="fileInput" style="display: none;" />
     <div id="map" id="Mapa">
-        <div class="choose">
-        <form >
+        <dialog id="choose">
+        <form>
             <label>
                 <input type="radio" name="wybor" value="opcja1" id="opcja1">
                 Podziel przez podaną liczbę części
@@ -130,20 +131,20 @@
                 <button id="divide" type="button">Podziel</button>
             </div>
         </form>
-        </div>
-        
-        <form id="sform">
+        </dialog>
+        <dialog id="dialogDownload">
+        <form>
             <label for="stext">Podaj nazwę pliku: </label><br>
-            <input type="text" id="stext" name="stext"><br>
+            <input type="text" id="stext" name="stext" placeholder="Wpisz nazwę pliku"><br>
             <label for="select">Zapisz zaznaczone:</label>
             <input type="radio" id="select" name="select"><br>
             <div id="buttonDownload">
             <button id="save">
-            <span>Pobierz </span>
+            <span>Pobierz</span>
             </div>
             </button>
-
         </form>
+        </dialog>
     </div>
 </div>
     <div class="about" id="about">

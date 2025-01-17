@@ -92,7 +92,7 @@ body {
 }
 
 :checked + span {
-  font-weight: bold;
+  font-weight: normal;
 }
 
 .fully-centered {
@@ -425,6 +425,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 .leaflet-bar {
 	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+	border: none !important;
 	border-radius: 4px;
 	}
 .leaflet-bar a {
@@ -496,6 +497,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
 	background: #fff;
 	border-radius: 5px;
+	border: none !important;
 	}
 .leaflet-control-layers-toggle {
 	background-image: url(images/layers.png);
@@ -822,22 +824,22 @@ svg.leaflet-image-layer.leaflet-interactive path {
     display: flex;
     flex-direction: column;
     gap: 10px;
-	border: black;
-	border-width: 10px;
+	border:none !important;
+	
 }
 
 .leaflet-control-custom a {
     border: none;
 }
 
-.choose {
-    position: absolute;
+#choose {
     top: 10px;
     right: 50px;
 	z-index: 1001;
     padding: 5px;
 	background-color: white;
-	border-style:inherit;
+	border:none;
+	border-radius: 20px;
 }
 
 #sform{
@@ -850,9 +852,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	display: none;
 }
 
-#divideForm{
-	border-style: inherit;
-}
+
+
+
 
 #fileInput{
 	cursor: pointer;
@@ -1074,7 +1076,7 @@ z-index: 1;
 	display: flex; 
     align-items: center;
     gap: 10px; 
-    border-radius: 10px;    
+    border-radius: 20px;    
     max-width: 500px; 
 	background-color: white;
 	height: 100px;
@@ -1133,6 +1135,7 @@ z-index: 1;
 	cursor: pointer;
 	transition: 0.1s;
 	display: inline-block;
+	font-family: "Oswald", serif;
 }
   
   .btn:hover {
@@ -1178,8 +1181,8 @@ z-index: 1;
 	padding: 10px;
     text-align: center;
 	justify-content: center;
-	margin-left: 500px;
-	margin-right: 500px;
+	margin-left: 450px;
+	margin-right: 450px;
 	margin-top: 50px;
 	font-family: "Oswald", serif;
 }
@@ -1203,4 +1206,9 @@ z-index: 1;
     letter-spacing: 2px;
     margin: 0;
     padding: 0;
+}
+
+#dialogDownload{
+	border-radius: 20px;
+	border:none;
 }

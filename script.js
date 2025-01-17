@@ -1,4 +1,6 @@
-let map = L.map('map');
+let map = L.map('map',{
+    doubleClickZoom: false
+});
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     crossOrigin: true
@@ -20,12 +22,13 @@ L.Control.geocoder({
     markerClass: L.circleMarker, 
 }).addTo(map);
 
+L.control.locate().addTo(map);
+
 let selectedSegments = [];
 let trackLayer = null;
 let coordinates = [];
 let elevationChart = null;
 let segments = [];
-let refreshCoordinates = [];
 let fileName = '';
 let layers = [];
 let layersCoordinates = [];
@@ -49,8 +52,7 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
             coordinates = trackPoints.map(point => {
                 return [parseFloat(point.getAttribute('lon')), parseFloat(point.getAttribute('lat')), parseFloat(point.getElementsByTagName('ele')[0].textContent)];
             });
-            refreshCoordinates = coordinates;
-            layersCoordinates.push(refreshCoordinates);
+            layersCoordinates.push(coordinates);
             let trackJSON = {
                 "type": "Feature",
                 "geometry": {
@@ -70,8 +72,8 @@ document.getElementById('fileInput').addEventListener('change', function(event) 
     }
 
 });
-function splitGPXByParts(refreshCoordinates, parts) {
-    const totalPoints = refreshCoordinates.length;
+function splitGPXByParts(coordinatesToSplit, parts) {
+    const totalPoints = coordinatesToSplit.length;
     const baseSegments = Math.floor(totalPoints / parts);
     const extraSegments = totalPoints % parts;
     let startIndex = 0;
@@ -79,7 +81,7 @@ function splitGPXByParts(refreshCoordinates, parts) {
     for (let i = 0; i < parts; i++) {
         const segmentCount = baseSegments + (i < extraSegments ? 1 : 0);
         const endIndex = startIndex + segmentCount;
-        const segmentCoordinates = refreshCoordinates.slice(startIndex, endIndex + 1);
+        const segmentCoordinates = coordinatesToSplit.slice(startIndex, endIndex + 1);
         if (segmentCoordinates.length > 1) {
             segments.push(segmentCoordinates);
         }; 
@@ -88,8 +90,8 @@ function splitGPXByParts(refreshCoordinates, parts) {
     console.log("Segmenty:", segments);
     return segments;
 }
-function splitLineByKilometer(refreshCoordinates, segmentLengthKm) {
-    let line = turf.lineString(refreshCoordinates);
+function splitLineByKilometer(coordinatesToSplit, segmentLengthKm) {
+    let line = turf.lineString(coordinatesToSplit);
     let totalLength = turf.length(line, { units: 'kilometers' });
     let currentDistance = 0;
     while (currentDistance < totalLength) {
@@ -229,42 +231,51 @@ document.getElementById('ile').style.display = 'none';
 document.getElementById('ile2').style.display = 'none';
 document.querySelector('label[for="ile"]').style.display = 'none';
 document.querySelector('label[for="ile2"]').style.display = 'none';
+
+const radioButtons = document.querySelectorAll('input[name="wybor"]');
+const divideButton = document.getElementById('divide');
+const ileInput = document.getElementById('ile');
+const ile2Input = document.getElementById('ile2');
+
+
+const dialog = document.getElementById('choose');
 function splitGPXHandler() {
-    const wyborDiv = document.querySelector('.choose');
-    const wyborForm = wyborDiv.querySelector('form');
-        if (wyborDiv.style.display === 'none' || wyborDiv.style.display === '') {
-            wyborDiv.style.display = 'block';
-            wyborForm.querySelectorAll('input[name="wybor"]').forEach(input => {
-                input.addEventListener('change', function() {
-                    document.getElementById('ile').style.display = 'none';
-                    document.querySelector('label[for="ile"]').style.display = 'none';
-                    document.getElementById('ile2').style.display = 'none';
-                    document.querySelector('label[for="ile2"]').style.display = 'none';
-                    if (this.value === 'opcja1') {
-                        document.getElementById('ile').style.display = 'inline';
-                        document.querySelector('label[for="ile"]').style.display = 'inline';
-                    } else if (this.value === 'opcja2') {
-                        document.getElementById('ile2').style.display = 'inline';
-                        document.querySelector('label[for="ile2"]').style.display = 'inline';
-                    }
-                });
-            });
-        } else {
-            wyborDiv.style.display = 'none';
-        }
+    if(layers.length===0){
+        alert("Brak warstw na mapie, dodaj warstwy aby wykonać operację")
+    }else if(selectedSegments.length>1){
+        alert('Zaznaczono zbyt wiele warstw. Zaznacz jedną widoczną warstwę')
+    }
+    else if(selectedSegments.length===1 || layers.length===1){
+        dialog.showModal();
+        const wyborForm = dialog.querySelector('form');
+        wyborForm.querySelectorAll('input[name="wybor"]').forEach(input => {
+            input.addEventListener('change', function() {
+                document.getElementById('ile').style.display = 'none';
+                document.querySelector('label[for="ile"]').style.display = 'none';
+                document.getElementById('ile2').style.display = 'none';
+                document.querySelector('label[for="ile2"]').style.display = 'none';
+                if (this.value === 'opcja1') {
+                    document.getElementById('ile').style.display = 'inline';
+                    document.querySelector('label[for="ile"]').style.display = 'inline';
+                } else if (this.value === 'opcja2') {
+                    document.getElementById('ile2').style.display = 'inline';
+                    document.querySelector('label[for="ile2"]').style.display = 'inline';
+            }
+        });
+    });
+    }
 }
-document.querySelector('.choose').style.display = 'none';
+
 function splitGPX() {
     const layersList = document.getElementById('layersList');
-    if (selectedSegments.length === 0) {
-        alert("Zaznacz warstwę do podziału");
-        return;
+    let layerToSplit;
+    let modifiedId;
+    if(layers.length===1){
+        layerToSplit = layers[0];
+        modifiedId = layerToSplit._leaflet_id;
+    }else if (selectedSegments.length>0){
+    ({ layer: layerToSplit, modifiedId } = selectedSegments[0]);
     }
-    if (selectedSegments.length > 1) {
-        alert("Zaznacz jedną warstwę do podziału");
-        return;
-    }
-    const { layer: layerToSplit, modifiedId } = selectedSegments[0];
     const index = layers.findIndex(layer =>
         layer._leaflet_id === layerToSplit._leaflet_id || layer._leaflet_id === modifiedId
     );
@@ -273,6 +284,7 @@ function splitGPX() {
         return;
     }
     const coordinatesToSplit = layersCoordinates[index];
+    console.log(coordinatesToSplit);
     if (!coordinatesToSplit || coordinatesToSplit.length === 0) {
         return;
     }
@@ -286,27 +298,28 @@ function splitGPX() {
     }
     let segmentsToAdd;
     if (selectedOption === 'opcja1') {
-        const parts = parseInt(document.getElementById('ile').value);
+        const parts = parseInt(ileInput.value);
         if (isNaN(parts) || parts <= 0) {
             alert("Podaj poprawną liczbę części");
             return;
         }
         segmentsToAdd = splitGPXByParts(coordinatesToSplit, parts);
     } else if (selectedOption === 'opcja2') {
-        const segmentLengthKm = parseFloat(document.getElementById('ile2').value);
+        const segmentLengthKm = parseFloat(ile2Input.value);
         if (isNaN(segmentLengthKm) || segmentLengthKm <= 0) {
             alert("Podaj poprawną długość");
             return;
         }
-        segmentsToAdd = splitLineByKilometer(coordinatesToSplit, segmentLengthKm); 
+        segmentsToAdd = splitLineByKilometer(coordinatesToSplit, segmentLengthKm);
+
     }
     if (!segmentsToAdd || segmentsToAdd.length === 0) {
         alert("Warstwa nie została podzielona");
         return;
     }
     const listItem = layersList.querySelector(`[data-layer-id="${modifiedId}"]`);
-        if (listItem) {
-            layersList.removeChild(listItem);
+    if (listItem) {
+        layersList.removeChild(listItem);
     }
     segmentsToAdd.forEach((coordinates, index) => {
         const trackJSON = {
@@ -329,10 +342,13 @@ function splitGPX() {
     });
     manageLayersControl();
     selectedSegments = [];
+    dialog.close();
 }
+
 document.getElementById('divide').addEventListener('click', (e) => {
     splitGPX();
 });
+
 function clearMap() {
     const layersList = document.getElementById('layersList');
     if (selectedSegments.length > 0) {
@@ -402,6 +418,8 @@ function updateStatsForLayer(coordinates) {
         elevationGain: elevationGain
     };
 }
+const dialogDownload = document.getElementById('dialogDownload')
+
 document.getElementById('save').addEventListener('click', (e) => {
     e.preventDefault();
     if ((!segments || segments.length === 0) && !trackLayer) {
@@ -446,16 +464,21 @@ document.getElementById('save').addEventListener('click', (e) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    document.querySelector('#sform').style.display = 'none';
+    dialogDownload.close();
 });
-function downloadGPXHandler() {
-    const saveForm = document.querySelector('#sform');
 
-    if (saveForm.style.display === 'none' || saveForm.style.display === '') {
-        saveForm.style.display = 'block';
-    } else {
-        saveForm.style.display = 'none';
+
+function downloadGPXHandler() {
+    if(layers.length>0){
+    dialogDownload.showModal();
+    }else{
+        alert('Brak danych do zapisania!')
     }
+    const name = document.getElementById('stext');
+    name.value = '';
+    const check = document.getElementById('select')
+    check.checked = false;
+   
 }
 function createElevationChart(distances, elevations) {
     const ctx = document.getElementById('elevationChart').getContext('2d');
@@ -507,31 +530,37 @@ let CustomControl = L.Control.extend({
         splitButton.href = '#';
         splitButton.text = 'D'
         splitButton.style.background = 'white';
+        splitButton.title = 'Dzieli zaznaczoną warstwę na segmenty';
 
         let mergeButton = L.DomUtil.create('a', '', container);
         mergeButton.href = '#';
         mergeButton.text = 'M'
         mergeButton.style.background = 'white';
+        mergeButton.title = 'Łączy zaznaczone segmenty w jedną warstwę'
 
         let statsButton = L.DomUtil.create('a', '', container);
         statsButton.href = '#';
         statsButton.text = 'S'
         statsButton.style.background = 'white';
+        statsButton.title = 'Wyświetla statystyki zaznaczonej warstwy w tabeli'
 
         let clearButton = L.DomUtil.create('a', '', container);
         clearButton.href = '#';
         clearButton.text = 'C'
         clearButton.style.background = 'white';
+        clearButton.title = 'Czyści mapę lub usuwa wskazane, warstwy/segmenty'
 
         let downloadButton = L.DomUtil.create('a', '', container);
         downloadButton.href = '#';
         downloadButton.text = '↓'
         downloadButton.style.background = 'white';
+        downloadButton.title = 'Zapisuje wskazaną warstwę do pliku'
 
         let fillButton = L.DomUtil.create('a', '', container);
         fillButton.href = '#';
         fillButton.text = 'F';
         fillButton.style.background = 'white';
+        fillButton.title = 'Wypełnia lukę pomiędzy dwoma warstwami'
 
         L.DomEvent.on(splitButton, 'click', function(e) {
             L.DomEvent.stopPropagation(e);
@@ -562,7 +591,7 @@ let CustomControl = L.Control.extend({
             downloadGPXHandler();
         });
         L.DomEvent.on(fillButton, 'click', function(e) {
-            L.DomEvent.stopPropagation(e);
+            L.DomEvent.stopPropagation();
             L.DomEvent.preventDefault(e);
             fillGap();
         });
@@ -601,28 +630,36 @@ map.addControl(new LayersControl());
 
 function manageLayersControl() {
     const layersList = document.getElementById('layersList');
-    if (!layersList) {
-        console.error("Nie znaleziono elementu layersList.");
-        return;
-    }
     layersList.innerHTML = '';
+
     layers.forEach((layer, index) => {
-        const listItem = document.createElement('li');
-        listItem.textContent = layer.fileName || `Warstwa ${index + 1}`;
+        const listItem = document.createElement('li'); 
+        listItem.style.display = 'flex';
+        listItem.style.marginBottom = '5px';
         listItem.dataset.layerId = layer._leaflet_id;
-        listItem.style.cursor = 'pointer';
-        listItem.addEventListener('click', () => {
-            if (map.hasLayer(layer)) {
-                map.removeLayer(layer);
-                listItem.style.textDecoration = 'line-through';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.style.cursor = 'pointer';
+        checkbox.checked = map.hasLayer(layer); 
+        
+
+        const label = document.createElement('span');
+        label.textContent = layer.fileName || `Warstwa ${index + 1}`;
+
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+                map.addLayer(layer); 
             } else {
-                map.addLayer(layer);
-                listItem.style.textDecoration = 'none';
+                map.removeLayer(layer); 
             }
         });
+        listItem.appendChild(checkbox);
+        listItem.appendChild(label);
         layersList.appendChild(listItem);
     });
 }
+
 function statsHandler() {
     const statsTable = document.getElementById('statsTable');
     const tableBody = statsTable.querySelector('tbody');
