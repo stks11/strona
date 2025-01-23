@@ -90,7 +90,7 @@ function splitGPXByParts(coordinatesToSplit, parts) {
     console.log("Segmenty:", segments);
     return segments;
 }
-function splitLineByKilometer(coordinatesToSplit, segmentLengthKm) {
+function SplitGPXByKilometer(coordinatesToSplit, segmentLengthKm) {
     let line = turf.lineString(coordinatesToSplit);
     let totalLength = turf.length(line, { units: 'kilometers' });
     let currentDistance = 0;
@@ -114,6 +114,7 @@ function layerSelection(layer) {
         
     }
 }
+
 function setupLayerClick(layer) {
     layer.on('click', function () {
         const modifiedId = layer._leaflet_id + 1;
@@ -125,7 +126,6 @@ function setupLayerClick(layer) {
             selectedSegments.push({ layer: layer, modifiedId: modifiedId });
             layer.setStyle({ weight: 5 });
         }
-        console.log("Zaznaczone:", selectedSegments);
     });
 }
 function mergeGPX() {
@@ -134,12 +134,11 @@ function mergeGPX() {
         return;
     }
     let mergedCoordinates = [];
-    let isTooFar = false;
     selectedSegments.forEach(({ layer }) => {
         const geoJSON = layer.toGeoJSON();
         if (geoJSON.geometry && geoJSON.geometry.coordinates) {
             mergedCoordinates = mergedCoordinates.concat(geoJSON.geometry.coordinates);
-            console.log(mergedCoordinates);
+            
         }
     });
     if (mergedCoordinates.length === 0) {
@@ -160,15 +159,11 @@ function mergeGPX() {
     layers.push(mergedTrackLayer);
     layersCoordinates.push(mergedCoordinates);
     selectedSegments.forEach(({ modifiedId }) => {
-        console.log("modifiedId:", modifiedId);
         const layerIndex = layers.findIndex(layer => layer._leaflet_id === modifiedId);
-        if (layerIndex !== -1) {
-            map.removeLayer(layers[layerIndex]);
-            layers.splice(layerIndex, 1);
-            layersCoordinates.splice(layerIndex, 1);
-        } else {
-            alert(`Nie znaleziono warstwy o ID: ${modifiedId}`);
-        }
+        map.removeLayer(layers[layerIndex]);
+        layers.splice(layerIndex, 1);
+        layersCoordinates.splice(layerIndex, 1);
+        
         const listItem = layersList.querySelector(`[data-layer-id="${modifiedId}"]`);
         if (listItem) {
             layersList.removeChild(listItem);
@@ -183,16 +178,11 @@ async function fetchRouteFromOSRM(start, end) {
     const url = `https://router.project-osrm.org/route/v1/driving/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson`;
     try {
       const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Błąd podczas pobierania trasy: ${response.statusText}`);
-      }
       const data = await response.json();
-      if (data.routes.length === 0) {
-        throw new Error("Brak dostępnej trasy między punktami.");
-      }
+      
       return data.routes[0].geometry; 
     } catch (error) {
-      console.error("Błąd w fetchRouteFromOSRM:", error);
+      console.error("Błąd:", error);
       throw error;
     }
 }
@@ -202,7 +192,7 @@ if (selectedSegments.length>1){
     const lastPoint = selectedSegments[1].layer.feature.geometry.coordinates;
     const latlngfirst = firstPoint.at(-1);
     const start = [latlngfirst[0],latlngfirst[1]];
-    const latlnglast = lastPoint.at(-1);
+    const latlnglast = lastPoint.at(0);
     const end = [latlnglast[0],latlnglast[1]]
     fetchRouteFromOSRM(start, end)
         .then((routeGeometry) => {
@@ -215,6 +205,7 @@ if (selectedSegments.length>1){
         const lineLayer = L.geoJSON(lineString, { style: { color: color } }).addTo(map);
         layers.push(lineLayer);
         layerSelection(lineLayer);
+        selectedSegments = [];
         lineLayer.fileName = `Fill - ${color}`
         manageLayersControl();
         })
@@ -310,7 +301,7 @@ function splitGPX() {
             alert("Podaj poprawną długość");
             return;
         }
-        segmentsToAdd = splitLineByKilometer(coordinatesToSplit, segmentLengthKm);
+        segmentsToAdd = SplitGPXByKilometer(coordinatesToSplit, segmentLengthKm);
 
     }
     if (!segmentsToAdd || segmentsToAdd.length === 0) {
@@ -335,6 +326,7 @@ function splitGPX() {
             style: { color: color, weight: 3 }
         }).addTo(map);
         trackSegmentLayer.fileName = `Segment ${index + 1} - ${color}`;
+        console.log("tracksegmentlayer:", trackSegmentLayer)
         segments.push(trackSegmentLayer);
         layers.push(trackSegmentLayer);
         layersCoordinates.push(coordinates);
@@ -367,14 +359,11 @@ function clearMap() {
         selectedSegments = [];
         return;
     }
-    if (trackLayer) {
-        map.removeLayer(trackLayer);
-        trackLayer = null;
-    }
     if (layers.length > 0) {
         layers.forEach(layer => {
             if (layer) {
                 map.removeLayer(layer);
+                trackLayer = null;
             }
         });
         layers = [];
@@ -399,25 +388,7 @@ function clearMap() {
         fileInputElement.value = '';
     }
 }
-function updateStatsForLayer(coordinates) {
-    let pointCount = coordinates.length;
-    let totalLength = 0;
-    let elevationGain = 0;
-    for (let i = 0; i < coordinates.length - 1; i++) {
-        let start = L.latLng(coordinates[i][1], coordinates[i][0]);
-        let end = L.latLng(coordinates[i + 1][1], coordinates[i + 1][0]);
-        totalLength += start.distanceTo(end) / 1000;
-        let elevationDiff = coordinates[i + 1][2] - coordinates[i][2];
-        if (elevationDiff > 0) {
-            elevationGain += elevationDiff;
-        }
-    }
-    return {
-        pointCount: pointCount,
-        totalLength: totalLength,
-        elevationGain: elevationGain
-    };
-}
+
 const dialogDownload = document.getElementById('dialogDownload')
 
 document.getElementById('save').addEventListener('click', (e) => {
@@ -478,20 +449,22 @@ function downloadGPXHandler() {
     name.value = '';
     const check = document.getElementById('select')
     check.checked = false;
-   
+ 
 }
 function createElevationChart(distances, elevations) {
     const ctx = document.getElementById('elevationChart').getContext('2d');
+    const formattedDistances = distances.map(value => parseFloat(value.toFixed(2)));
+    const formattedElevations = elevations.map(value => parseFloat(value.toFixed(2)));
     if (elevationChart !== null) {
         elevationChart.destroy();
     }
     elevationChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: distances,
+            labels: formattedDistances,
             datasets: [{
                 label: 'Przewyższenia (m)',
-                data: elevations,
+                data: formattedElevations,
                 borderColor: 'rgba(75, 192, 192, 1)',
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                 fill: true,
@@ -571,7 +544,7 @@ let CustomControl = L.Control.extend({
         L.DomEvent.on(statsButton, 'click', function(e) {
             L.DomEvent.stopPropagation(e);
             L.DomEvent.preventDefault(e);
-            statsHandler();
+            stats();
         });
 
         L.DomEvent.on(clearButton, 'click', function(e) {
@@ -591,7 +564,7 @@ let CustomControl = L.Control.extend({
             downloadGPXHandler();
         });
         L.DomEvent.on(fillButton, 'click', function(e) {
-            L.DomEvent.stopPropagation();
+            L.DomEvent.stopPropagation(e);
             L.DomEvent.preventDefault(e);
             fillGap();
         });
@@ -660,7 +633,7 @@ function manageLayersControl() {
     });
 }
 
-function statsHandler() {
+function stats() {
     const statsTable = document.getElementById('statsTable');
     const tableBody = statsTable.querySelector('tbody');
     if (statsTable.style.display === 'table') {
@@ -672,23 +645,37 @@ function statsHandler() {
             let stats = { pointCount: 0, totalLength: 0, elevationGain: 0 };
             let distances = [];
             let elevations = [];
+            
             selectedSegments.forEach(({ modifiedId }) => {
                 const layerIndex = layers.findIndex(layer => layer._leaflet_id === modifiedId);
                 if (layerIndex !== -1) {
                     const coordinates = layersCoordinates[layerIndex];
-                    const layerStats = updateStatsForLayer(coordinates);
-                    stats.pointCount += layerStats.pointCount;
-                    stats.totalLength += parseFloat(layerStats.totalLength);
-                    stats.elevationGain += layerStats.elevationGain;
+                    stats.pointCount += coordinates.length;
+
+                    let segmentLength = 0;
+                    let segmentElevationGain = 0;
                     let totalDistance = distances.length > 0 ? distances[distances.length - 1] : 0;
-                    for (let i = 1; i < coordinates.length; i++) {
-                        let start = L.latLng(coordinates[i - 1][1], coordinates[i - 1][0]);
-                        let end = L.latLng(coordinates[i][1], coordinates[i][0]);
-                        let distance = start.distanceTo(end) / 1000;
+
+                    for (let i = 0; i < coordinates.length - 1; i++) {
+                        const start = L.latLng(coordinates[i][1], coordinates[i][0]);
+                        const end = L.latLng(coordinates[i + 1][1], coordinates[i + 1][0]);
+
+                        const distance = start.distanceTo(end) / 1000;
+                        segmentLength += distance;
+
                         totalDistance += distance;
                         distances.push(totalDistance);
-                        elevations.push(coordinates[i][2]);
+
+                        const elevationDiff = coordinates[i + 1][2] - coordinates[i][2];
+                        if (elevationDiff > 0) {
+                            segmentElevationGain += elevationDiff;
+                        }
+
+                        elevations.push(coordinates[i + 1][2]);
                     }
+
+                    stats.totalLength += segmentLength;
+                    stats.elevationGain += segmentElevationGain;
                 }
             });
             tableBody.innerHTML = '';
@@ -698,12 +685,13 @@ function statsHandler() {
             const cellElevation = document.createElement('td');
             cellCount.textContent = stats.pointCount;
             cellLength.textContent = stats.totalLength.toFixed(2);
-            cellElevation.textContent = stats.elevationGain;
+            cellElevation.textContent = stats.elevationGain.toFixed(0);
             row.appendChild(cellCount);
             row.appendChild(cellLength);
             row.appendChild(cellElevation);
             tableBody.appendChild(row);
             statsTable.style.display = 'table';
+
             if (distances.length > 0 && elevations.length > 0) {
                 createElevationChart(distances, elevations);
                 document.getElementById('elevationChart').style.display = 'block';
@@ -713,4 +701,5 @@ function statsHandler() {
         }
     }
 }
+
 
