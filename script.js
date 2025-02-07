@@ -463,7 +463,7 @@ function createElevationChart(distances, elevations) {
         data: {
             labels: formattedDistances,
             datasets: [{
-                label: 'Przewyższenia (m)',
+                label: 'Wysokość n.p.m.(m)',
                 data: formattedElevations,
                 borderColor: 'rgba(75, 192, 192, 1)',
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
@@ -492,85 +492,41 @@ function createElevationChart(distances, elevations) {
         }
     });
 }
+
+function createButton(text, title, onClick, container) {
+    const button = L.DomUtil.create('a', '', container);
+    button.href = '#';
+    button.textContent = text;
+    button.style.background = 'white';
+    button.title = title;
+
+    L.DomEvent.on(button, 'click', function(e) {
+        L.DomEvent.stopPropagation(e);
+        L.DomEvent.preventDefault(e);
+        onClick();
+    });
+
+    return button;
+}
+
 let CustomControl = L.Control.extend({
     options: {
-        position: 'topright' 
+        position: 'topright'
     },
     onAdd: function(map) {
         let container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
 
-        let splitButton = L.DomUtil.create('a', '', container);
-        splitButton.href = '#';
-        splitButton.text = 'D'
-        splitButton.style.background = 'white';
-        splitButton.title = 'Dzieli zaznaczoną warstwę na segmenty';
+        createButton('D', 'Dzieli zaznaczoną warstwę na segmenty', splitGPXHandler, container);
+        createButton('M', 'Łączy zaznaczone segmenty w jedną warstwę', mergeGPX, container);
+        createButton('S', 'Wyświetla statystyki zaznaczonej warstwy w tabeli', stats, container);
+        createButton('C', 'Czyści mapę lub usuwa wskazane warstwy/segmenty', clearMap, container);
+        createButton('↓', 'Zapisuje wskazaną warstwę do pliku', downloadGPXHandler, container);
+        createButton('F', 'Wypełnia lukę pomiędzy dwoma warstwami', fillGap, container);
 
-        let mergeButton = L.DomUtil.create('a', '', container);
-        mergeButton.href = '#';
-        mergeButton.text = 'M'
-        mergeButton.style.background = 'white';
-        mergeButton.title = 'Łączy zaznaczone segmenty w jedną warstwę'
-
-        let statsButton = L.DomUtil.create('a', '', container);
-        statsButton.href = '#';
-        statsButton.text = 'S'
-        statsButton.style.background = 'white';
-        statsButton.title = 'Wyświetla statystyki zaznaczonej warstwy w tabeli'
-
-        let clearButton = L.DomUtil.create('a', '', container);
-        clearButton.href = '#';
-        clearButton.text = 'C'
-        clearButton.style.background = 'white';
-        clearButton.title = 'Czyści mapę lub usuwa wskazane, warstwy/segmenty'
-
-        let downloadButton = L.DomUtil.create('a', '', container);
-        downloadButton.href = '#';
-        downloadButton.text = '↓'
-        downloadButton.style.background = 'white';
-        downloadButton.title = 'Zapisuje wskazaną warstwę do pliku'
-
-        let fillButton = L.DomUtil.create('a', '', container);
-        fillButton.href = '#';
-        fillButton.text = 'F';
-        fillButton.style.background = 'white';
-        fillButton.title = 'Wypełnia lukę pomiędzy dwoma warstwami'
-
-        L.DomEvent.on(splitButton, 'click', function(e) {
-            L.DomEvent.stopPropagation(e);
-            L.DomEvent.preventDefault(e);
-            splitGPXHandler();
-        });
-
-        L.DomEvent.on(statsButton, 'click', function(e) {
-            L.DomEvent.stopPropagation(e);
-            L.DomEvent.preventDefault(e);
-            stats();
-        });
-
-        L.DomEvent.on(clearButton, 'click', function(e) {
-            L.DomEvent.stopPropagation(e);
-            L.DomEvent.preventDefault(e);
-            clearMap();
-        });
-
-        L.DomEvent.on(mergeButton, 'click', function(e) {
-            L.DomEvent.stopPropagation(e);
-            L.DomEvent.preventDefault(e);
-            mergeGPX();
-        });
-        L.DomEvent.on(downloadButton, 'click', function(e) {
-            L.DomEvent.stopPropagation(e);
-            L.DomEvent.preventDefault(e);
-            downloadGPXHandler();
-        });
-        L.DomEvent.on(fillButton, 'click', function(e) {
-            L.DomEvent.stopPropagation(e);
-            L.DomEvent.preventDefault(e);
-            fillGap();
-        });
         return container;
     }
 });
+
 
 map.addControl(new CustomControl());
 
